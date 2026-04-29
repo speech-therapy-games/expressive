@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>夾公仔大挑戰 - 關係子句特訓</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans HK', sans-serif; 
+            background-color: #1e1b4b; 
+            background-image: radial-gradient(circle at 50% 50%, #4c1d95 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            overscroll-behavior-y: contain; 
+            margin: 0;
+            padding: 0;
+            touch-action: pan-y; 
+        }
+
+        /* 夾公仔機外殼 */
+        .machine-casing {
+            background: linear-gradient(180deg, #db2777 0%, #9d174d 100%);
+            border: 8px solid #4c0519;
+            box-shadow: inset 0 10px 20px rgba(255,255,255,0.2), 0 20px 40px rgba(0,0,0,0.8);
+            transition: background 0.5s ease;
+        }
+
+        /* 動物機外殼顏色 */
+        .machine-casing.animal-theme {
+            background: linear-gradient(180deg, #d97706 0%, #9a3412 100%);
+            border-color: #431407;
+        }
+
+        /* 玻璃內部 */
+        .glass-cabinet {
+            background: linear-gradient(180deg, #bae6fd 0%, #38bdf8 100%);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+            border: 6px solid #e2e8f0;
+            border-bottom: 20px solid #94a3b8; 
+            transition: background 0.5s ease;
+        }
+        
+        /* 動物機背景顏色 */
+        .animal-theme .glass-cabinet {
+            background: linear-gradient(180deg, #bbf7d0 0%, #4ade80 100%);
+        }
+
+        .glass-reflection {
+            position: absolute;
+            top: 0; left: -50%; width: 200%; height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.3) 40%, rgba(255,255,255,0) 50%);
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* 出口區 */
+        .exit-chute {
+            position: absolute;
+            bottom: 0; left: 0; width: 22%; height: 60%;
+            background: linear-gradient(90deg, #1e293b, #334155);
+            border-right: 4px solid #64748b;
+            border-top: 4px solid #64748b;
+            border-top-right-radius: 15px;
+            z-index: 10;
+            box-shadow: inset -10px -10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 20px;
+        }
+        .exit-hole {
+            width: 80%; height: 40px;
+            background-color: #0f172a;
+            border-radius: 100px / 30px;
+            box-shadow: inset 0 10px 10px rgba(0,0,0,0.9);
+        }
+
+        /* 公仔樣式 */
+        .plushie {
+            position: absolute;
+            transform-origin: bottom center;
+            transition: filter 0.3s;
+            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3));
+        }
+
+        .ambiguous-highlight {
+            animation: plushie-glow 1s infinite alternate;
+            z-index: 35 !important;
+        }
+        @keyframes plushie-glow {
+            0% { filter: drop-shadow(0 0 5px #fde047) drop-shadow(0 10px 5px rgba(0,0,0,0.3)); }
+            100% { filter: drop-shadow(0 0 25px #fde047) drop-shadow(0 10px 5px rgba(0,0,0,0.3)); }
+        }
+
+        /* 爪子系統 */
+        #claw-assembly {
+            position: absolute;
+            top: -20px; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 45;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .transition-smooth { transition: top 1s ease-in-out, left 1s ease-in-out; }
+        .transition-top-only { transition: top 1s ease-in-out; }
+        
+        .claw-wire {
+            width: 8px; height: 800px; 
+            background: linear-gradient(90deg, #64748b, #cbd5e1, #64748b);
+            position: absolute; bottom: 100%;
+        }
+
+        .claw-head {
+            width: 80px; height: 80px; position: relative;
+        }
+
+        .claw-arm {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: top center;
+        }
+        .claw-open .claw-left { transform: rotate(35deg); }
+        .claw-open .claw-right { transform: rotate(-35deg); }
+        .claw-closed .claw-left { transform: rotate(10deg); }
+        .claw-closed .claw-right { transform: rotate(-10deg); }
+
+        /* 物理級跌入洞口動畫 */
+        @keyframes fallDown {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(250px) scale(0.3); opacity: 0; }
+        }
+        .drop-down-chute { animation: fallDown 1s forwards ease-in; }
+
+        /* 控制器與硬幣 */
+        .joy-btn, #coin {
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .coin-slot-container {
+            width: 60px; height: 100px;
+            background: #1e293b; border: 4px solid #475569; border-radius: 10px;
+            position: relative; display: flex; justify-content: center; align-items: center;
+        }
+        .coin-slot {
+            width: 10px; height: 60px;
+            background: #000; border-radius: 5px; box-shadow: inset 0 0 5px rgba(255,255,255,0.5);
+        }
+        #coin {
+            width: 50px; height: 50px;
+            background: radial-gradient(circle at 30% 30%, #fde047, #ca8a04);
+            border-radius: 50%; border: 4px solid #a16207;
+            color: #713f12; font-weight: 900; font-size: 24px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+            cursor: grab; position: absolute; right: 80px; z-index: 100;
+            transition: transform 0.3s;
+        }
+        #coin:active { cursor: grabbing; }
+
+        .disabled-panel { filter: grayscale(1) brightness(0.6); pointer-events: none; }
+        
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    </style>
+</head>
+<body class="p-2 md:p-4 min-h-screen flex flex-col items-center justify-center">
+
+    <div id="main-casing" class="max-w-5xl w-full mx-auto machine-casing rounded-3xl overflow-hidden flex flex-col relative border-b-[16px]">
+        
+        <!-- Header -->
+        <div class="bg-slate-900 p-3 md:p-5 border-b-8 border-pink-500 text-center relative flex justify-between items-center z-10 shadow-xl" id="header-border">
+            <h1 class="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-400 to-yellow-300 tracking-widest" id="main-title" style="filter: drop-shadow(0 0 10px rgba(236,72,153,0.8));">
+                🕹️ 夾公仔大挑戰
+            </h1>
+            <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
+                <div class="bg-black/50 px-4 py-2 rounded-xl border-2 border-yellow-500 text-yellow-300 font-mono font-bold text-sm md:text-lg shadow-[0_0_10px_rgba(234,179,8,0.5)] flex items-center gap-2">
+                    <span>成功: <span id="score-display" class="text-2xl">0</span></span>
+                </div>
+                
+                <!-- ✨ 新增：切換機台按鈕 ✨ -->
+                <button onclick="toggleMachineTheme()" id="machine-toggle-btn" class="bg-indigo-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-base border-2 border-indigo-400 hover:bg-indigo-500 transition shadow-[0_4px_0_#3730a3] active:translate-y-[4px] active:shadow-none flex items-center gap-1">
+                    🐻 轉玩動物機
+                </button>
+                
+                <button onclick="restartGame()" class="bg-purple-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-base border-2 border-purple-400 hover:bg-purple-500 transition shadow-[0_4px_0_#581c87] active:translate-y-[4px] active:shadow-none flex items-center gap-1">
+                    🔄 重玩
+                </button>
+            </div>
+        </div>
+
+        <div class="p-3 md:p-6 flex flex-col gap-4 flex-1 z-10 bg-slate-800/60">
+            
+            <!-- 上方控制區 -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 relative flex flex-col lg:flex-row gap-4 items-center justify-between border-4 border-pink-900 shadow-lg" id="control-panel-border">
+                
+                <!-- Target Display -->
+                <div class="flex flex-col items-center bg-black p-2 rounded-xl shadow-[0_0_20px_rgba(236,72,153,0.6)] border-4 border-pink-500 min-w-[160px] h-[160px] justify-center relative shrink-0" id="target-display-border">
+                    <span class="absolute top-1 left-2 text-sm font-bold text-pink-400 tracking-widest animate-pulse" id="target-label">🎯 目標</span>
+                    <div id="mission-visual" class="flex justify-center items-center w-full h-full pt-4">
+                        <div class="text-5xl opacity-30 text-white">投幣開始</div>
+                    </div>
+                </div>
+
+                <div class="flex-1 w-full flex flex-col items-center justify-center gap-3">
+                    
+                    <div id="system-feedback" class="w-full bg-slate-950 text-yellow-300 p-3 rounded-xl text-center font-bold text-lg md:text-xl border-2 border-yellow-600 shadow-inner min-h-[60px] flex flex-col items-center justify-center">
+                        👈 拖曳銀仔入錢開始遊戲！
+                        <span class="text-xs text-yellow-500/70 mt-1">⚠️ 若無聲音，請確保 iPad 側邊掣或控制中心的「鈴鐺」未被靜音</span>
+                    </div>
+                    
+                    <!-- 句式提示區 (隱藏) -->
+                    <div id="text-hint-box" class="hidden w-full bg-slate-100 text-slate-800 p-3 rounded-xl text-center font-bold text-base md:text-lg shadow-inner border-4 border-slate-300">
+                        <div class="mb-1 text-sm text-slate-500">你可以講：</div>
+                        <div class="mb-2">「<span class="text-rose-600 border-b-4 border-rose-400 px-1" id="hint-shirt">_</span> <span id="hint-measure" class="font-black">嗰個</span> <span class="text-emerald-600 border-b-4 border-emerald-400 px-1" id="hint-person">_</span> <span class="text-blue-600 border-b-4 border-blue-400 px-1" id="hint-action">_</span>」</div>
+                        <div class="text-sm text-slate-500">或者</div>
+                        <div class="mt-1">「<span class="text-blue-600 border-b-4 border-blue-400 px-1" id="hint-action2">_</span> <span id="hint-measure2" class="font-black">嗰個</span> <span class="text-emerald-600 border-b-4 border-emerald-400 px-1" id="hint-person2">_</span> <span class="text-rose-600 border-b-4 border-rose-400 px-1" id="hint-shirt2">_</span>」</div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-2 w-full">
+                        <div class="flex gap-3 justify-center w-full flex-wrap items-center">
+                            <button id="mic-btn" onclick="startSpeechRecognition()" class="bg-rose-500 text-white px-6 py-2 md:py-3 rounded-full font-black text-lg md:text-xl hover:bg-rose-400 transition-all shadow-[0_6px_0_#9f1239] active:translate-y-[6px] active:shadow-none flex items-center gap-2 border-4 border-rose-300 disabled:opacity-50">
+                                🎙️ 讀出句子解鎖
+                            </button>
+                            <button onclick="toggleTextHint()" class="bg-indigo-600 text-white px-5 py-2 md:py-3 rounded-full font-bold text-base md:text-lg hover:bg-indigo-500 transition shadow-[0_4px_0_#4338ca] active:translate-y-[4px] active:shadow-none border-2 border-indigo-400">
+                                📝 句式提示
+                            </button>
+                        </div>
+                        
+                        <!-- 即時語音字幕顯示區 -->
+                        <div class="w-full bg-slate-800 rounded-lg p-2 min-h-[44px] flex items-center justify-center border-2 border-slate-600 shadow-inner mt-1">
+                            <div id="transcript-display" class="text-amber-300 font-bold text-base md:text-lg flex items-center w-full justify-center">
+                                <span class="text-slate-400 text-sm">語音字幕將顯示在此...</span>
+                            </div>
+                        </div>
+
+                        <button onclick="unlockControlsManual()" class="text-slate-400 underline text-sm hover:text-white transition font-bold mt-1">
+                            🔑 手動解鎖 (跳過語音)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 互動投幣區 -->
+                <div class="flex items-center gap-4 relative shrink-0 w-[150px] justify-end">
+                    <div id="coin" draggable="false" class="text-yellow-900 flex items-center justify-center select-none shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                        <span class="text-xl font-bold">$</span>
+                    </div>
+                    <div class="coin-slot-container" id="coin-slot">
+                        <div class="coin-slot"></div>
+                        <div class="absolute -bottom-6 text-xs font-bold text-slate-400 whitespace-nowrap">入銀仔</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Glass Cabinet (遊戲區) -->
+            <div id="suspect-grid" class="glass-cabinet rounded-2xl min-h-[380px] md:min-h-[450px] flex justify-center">
+                <div class="glass-reflection"></div>
+                
+                <!-- 出口區 -->
+                <div class="exit-chute">
+                    <div class="exit-hole"></div>
+                    <div class="text-white/50 font-bold mt-2 tracking-widest text-base">出口</div>
+                </div>
+                
+                <!-- 機械爪組件 -->
+                <div id="claw-assembly" class="claw-open transition-top-only" style="left: 50%;">
+                    <div class="claw-wire"></div>
+                    <svg class="claw-head" viewBox="0 0 100 100">
+                        <rect x="35" y="0" width="30" height="25" rx="5" fill="#475569" stroke="#1e293b" stroke-width="3"/>
+                        <circle cx="50" cy="25" r="15" fill="#facc15" stroke="#ca8a04" stroke-width="3"/>
+                        <g class="claw-arm claw-left" style="transform-origin: 35px 25px;">
+                            <path d="M 35 25 Q 10 50 20 90 L 25 85 Q 15 50 35 30 Z" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                            <circle cx="20" cy="90" r="4" fill="#ef4444"/>
+                        </g>
+                        <g class="claw-arm claw-right" style="transform-origin: 65px 25px;">
+                            <path d="M 65 25 Q 90 50 80 90 L 75 85 Q 85 50 65 30 Z" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                            <circle cx="80" cy="90" r="4" fill="#ef4444"/>
+                        </g>
+                    </svg>
+                    <!-- 被夾起的實體公仔容器 -->
+                    <div id="claw-payload" class="absolute top-[40px] left-0 w-full z-[-1] flex justify-center items-center"></div>
+                </div>
+
+                <div id="characters-container" class="absolute inset-0"></div>
+            </div>
+
+            <!-- Control Panel (實體搖桿按鈕) -->
+            <div class="flex justify-center bg-slate-900 p-4 md:p-6 rounded-2xl border-4 shadow-2xl relative mt-[-10px] z-20" id="bottom-panel-border" style="border-color: #831843;">
+                <div id="joystick-panel" class="disabled-panel flex items-center gap-6 bg-slate-800 p-4 md:px-10 rounded-2xl border-4 border-slate-700 shadow-inner">
+                    <div class="flex gap-4">
+                        <button id="btn-left" class="joy-btn bg-sky-500 text-white w-16 h-16 md:w-20 md:h-20 rounded-xl font-black text-3xl shadow-[0_6px_0_#0369a1] active:translate-y-[6px] active:shadow-none border-2 border-sky-300">⬅️</button>
+                        <button id="btn-right" class="joy-btn bg-sky-500 text-white w-16 h-16 md:w-20 md:h-20 rounded-xl font-black text-3xl shadow-[0_6px_0_#0369a1] active:translate-y-[6px] active:shadow-none border-2 border-sky-300">➡️</button>
+                    </div>
+                    <div class="w-1 h-16 bg-slate-600 rounded-full mx-2 hidden md:block"></div>
+                    <button onclick="dropClaw()" class="joy-btn bg-red-500 text-white w-20 h-20 md:w-24 md:h-24 rounded-full font-black text-2xl md:text-3xl shadow-[0_8px_0_#991b1b] active:translate-y-[8px] active:shadow-none border-4 border-red-300 flex items-center justify-center animate-pulse">
+                        👇<br>落爪
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data Definitions ---
+        const SHIRTS = [
+            { id: 'red', name: '著紅衫', keyword: '紅', hex: '#ef4444' },
+            { id: 'blue', name: '著藍衫', keyword: '藍', hex: '#3b82f6' },
+            { id: 'green', name: '著綠衫', keyword: '綠', hex: '#22c55e' },
+            { id: 'yellow', name: '著黃衫', keyword: '黃', hex: '#facc15' }
+        ];
+
+        const ACTIONS = [
+            { id: 'drink', name: '飲緊水', keyword: '飲', emoji: '💧', base: '飲水' },
+            { id: 'apple', name: '食緊蘋果', keyword: '蘋果', emoji: '🍎', base: '食蘋果' },
+            { id: 'book', name: '睇緊書', keyword: '書', emoji: '📖', base: '睇書' },
+            { id: 'ball', name: '踢緊波', keyword: '波', emoji: '⚽', base: '踢波' }
+        ];
+
+        // ✨ 雙主題數據字典 ✨
+        const HUMANS = [
+            { id: 'boy', name: '男仔', keyword: '男', isBoy: true, isAnimal: false },
+            { id: 'girl', name: '女仔', keyword: '女', isBoy: false, isAnimal: false }
+        ];
+
+        const ANIMALS = [
+            { id: 'cat', name: '貓貓', keyword: '貓', isAnimal: true, hex: '#fbbf24' }, // 橙黃色
+            { id: 'dog', name: '狗狗', keyword: '狗', isAnimal: true, hex: '#d97706' }  // 啡橙色
+        ];
+
+        let currentTheme = 'human'; 
+        let PERSONS = HUMANS; // 當前使用的人物/動物庫
+
+        const safeSlots = [
+            { bottom: '2%', left: '28%', zIndex: 30 },
+            { bottom: '6%', left: '50%', zIndex: 32 },
+            { bottom: '2%', left: '72%', zIndex: 31 },
+            { bottom: '15%', left: '38%', zIndex: 20 },
+            { bottom: '12%', left: '60%', zIndex: 21 },
+            { bottom: '18%', left: '80%', zIndex: 19 } 
+        ];
+
+        let targetSuspect = null;
+        let currentLineup = []; 
+        let isGameActive = false;
+        let isHintVisible = false;
+        let isClawUnlocked = false; 
+        let isClawAnimating = false; 
+        let score = 0;
+        
+        let clawX = 50; 
+        let clawMoveInterval;
+        let bgmInterval = null;
+        let bgmNoteIndex = 0;
+
+        // --- Audio & Effects Initialization ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        let isAudioUnlocked = false;
+
+        function unlockAudio() {
+            if (isAudioUnlocked) return;
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(0);
+            osc.stop(0.1);
+            isAudioUnlocked = true;
+            
+            document.removeEventListener('touchstart', unlockAudio);
+            document.removeEventListener('pointerdown', unlockAudio);
+            document.removeEventListener('click', unlockAudio);
+        }
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+        document.addEventListener('pointerdown', unlockAudio, { once: true });
+        document.addEventListener('click', unlockAudio, { once: true });
+
+        // --- 主題切換邏輯 ---
+        function toggleMachineTheme() {
+            if (isClawAnimating) return;
+            
+            const casing = document.getElementById('main-casing');
+            const toggleBtn = document.getElementById('machine-toggle-btn');
+            const title = document.getElementById('main-title');
+            
+            if (currentTheme === 'human') {
+                currentTheme = 'animal';
+                PERSONS = ANIMALS;
+                casing.classList.add('animal-theme');
+                toggleBtn.innerHTML = '👦 轉玩人類機';
+                toggleBtn.className = "bg-rose-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-base border-2 border-rose-400 hover:bg-rose-500 transition shadow-[0_4px_0_#881337] active:translate-y-[4px] active:shadow-none flex items-center gap-1";
+                title.innerHTML = '🐾 動物夾公仔機';
+                title.style.backgroundImage = 'linear-gradient(to right, #fde047, #4ade80, #fde047)';
+                
+                // UI Color Adjustments for Animal Theme
+                document.getElementById('header-border').style.borderColor = '#16a34a';
+                document.getElementById('target-display-border').style.borderColor = '#22c55e';
+                document.getElementById('target-display-border').style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.6)';
+                document.getElementById('target-label').className = 'absolute top-1 left-2 text-sm font-bold text-green-400 tracking-widest animate-pulse';
+                document.getElementById('control-panel-border').style.borderColor = '#14532d';
+                document.getElementById('bottom-panel-border').style.borderColor = '#14532d';
+                
+            } else {
+                currentTheme = 'human';
+                PERSONS = HUMANS;
+                casing.classList.remove('animal-theme');
+                toggleBtn.innerHTML = '🐻 轉玩動物機';
+                toggleBtn.className = "bg-indigo-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-base border-2 border-indigo-400 hover:bg-indigo-500 transition shadow-[0_4px_0_#3730a3] active:translate-y-[4px] active:shadow-none flex items-center gap-1";
+                title.innerHTML = '🕹️ 夾公仔大挑戰';
+                title.style.backgroundImage = 'linear-gradient(to right, #fde047, #f472b6, #fde047)';
+                
+                // UI Color Adjustments back to Human Theme
+                document.getElementById('header-border').style.borderColor = '#ec4899';
+                document.getElementById('target-display-border').style.borderColor = '#ec4899';
+                document.getElementById('target-display-border').style.boxShadow = '0 0 20px rgba(236, 72, 153, 0.6)';
+                document.getElementById('target-label').className = 'absolute top-1 left-2 text-sm font-bold text-pink-400 tracking-widest animate-pulse';
+                document.getElementById('control-panel-border').style.borderColor = '#831843';
+                document.getElementById('bottom-panel-border').style.borderColor = '#831843';
+            }
+
+            // 更新提示區的量詞
+            const measureWord = currentTheme === 'human' ? '嗰個' : '嗰隻';
+            document.getElementById('hint-measure').textContent = measureWord;
+            document.getElementById('hint-measure2').textContent = measureWord;
+            
+            playMechanicalSound();
+            restartGame();
+        }
+
+        // --- Coin Drag and Drop Logic ---
+        const coin = document.getElementById('coin');
+        const slot = document.getElementById('coin-slot');
+        let isDragging = false;
+        let startX, startY;
+
+        coin.addEventListener('pointerdown', (e) => {
+            if (isGameActive || isClawAnimating) return; 
+            unlockAudio(); 
+            if (audioCtx.state === 'suspended') audioCtx.resume(); 
+            isDragging = true;
+            startX = e.clientX; startY = e.clientY;
+            coin.style.transition = 'none';
+            coin.setPointerCapture(e.pointerId);
+            setTimeout(() => playCoinTouchSound(), 50); 
+        });
+
+        coin.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            coin.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
+        });
+
+        coin.addEventListener('pointerup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            coin.releasePointerCapture(e.pointerId);
+
+            const coinRect = coin.getBoundingClientRect();
+            const slotRect = slot.getBoundingClientRect();
+            const overlap = !(coinRect.right < slotRect.left || coinRect.left > slotRect.right || coinRect.bottom < slotRect.top || coinRect.top > slotRect.bottom);
+
+            if (overlap) {
+                playCoinInsertSound();
+                coin.style.transform = `translate(10px, 20px) scale(0)`; 
+                setTimeout(() => {
+                    coin.style.transition = 'none';
+                    coin.style.transform = 'translate(0, 0) scale(1)'; 
+                    generateMission(); 
+                }, 500);
+            } else {
+                coin.style.transition = 'transform 0.3s ease';
+                coin.style.transform = 'translate(0, 0) scale(1)';
+            }
+        });
+
+        // --- SVG Generator (支援人類與動物) ---
+        function generateSuspectSVG(suspect, scale = 1) {
+            const isAnimal = suspect.personObj.isAnimal;
+            const animalType = suspect.personObj.id; // 'cat' or 'dog'
+            const action = suspect.actionObj.base;
+            const shirtColor = suspect.shirtObj.hex;
+            
+            let skinColor = '#fde047'; // 預設人類膚色
+            let hairColor = suspect.personObj.isBoy ? '#1e293b' : '#78350f';
+            
+            if (isAnimal) {
+                skinColor = suspect.personObj.hex; // 動物膚色
+            }
+
+            let leftHandX = 15, leftHandY = 105, rightHandX = 105, rightHandY = 105;
+            if (['食蘋果', '飲水'].includes(action)) { leftHandX = 45; leftHandY = 95; } 
+            else if (action === '睇書') { leftHandX = 33; leftHandY = 112; rightHandX = 75; rightHandY = 112; } 
+
+            let svg = `<svg viewBox="-10 -10 140 180" class="w-24 h-32 md:w-32 md:h-44 overflow-visible" style="transform: scale(${scale});">`;
+            svg += `<ellipse cx="60" cy="155" rx="35" ry="8" fill="rgba(0,0,0,0.4)" stroke="none" />`;
+            
+            svg += `<g stroke="none">`;
+            
+            // ✨ 動物尾巴 (在身體和腳後面) ✨
+            if (isAnimal) {
+                if (animalType === 'cat') {
+                    svg += `<path d="M 80 110 Q 110 110 115 80" fill="none" stroke="${skinColor}" stroke-width="8" stroke-linecap="round" />`;
+                } else if (animalType === 'dog') {
+                    svg += `<path d="M 80 115 Q 105 125 110 100" fill="none" stroke="${skinColor}" stroke-width="12" stroke-linecap="round" />`;
+                }
+            } else if (!suspect.personObj.isBoy) {
+                // 人類女仔後頭髮
+                svg += `<circle cx="30" cy="55" r="18" fill="${hairColor}" />`;
+                svg += `<circle cx="90" cy="55" r="18" fill="${hairColor}" />`;
+            }
+
+            // 腳
+            let legClass = action === '踢波' ? `transform="rotate(-30 70 120)"` : '';
+            svg += `<path d="M 45 100 L 45 145" stroke="${skinColor}" stroke-width="14" fill="none" stroke-linecap="round"/>`;
+            svg += `<ellipse cx="40" cy="148" rx="14" ry="10" fill="#333" />`;
+            svg += `<g ${legClass}>
+                <path d="M 75 100 L 75 145" stroke="${skinColor}" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <ellipse cx="80" cy="148" rx="14" ry="10" fill="#333" />
+            </g>`;
+            
+            // 身體 (衫)
+            svg += `<rect x="30" y="70" width="60" height="50" rx="20" fill="${shirtColor}" />`;
+            
+            // ✨ 頭部生成邏輯 ✨
+            svg += `<circle cx="60" cy="50" r="35" fill="${skinColor}" />`; // 共同的圓形頭
+            
+            if (isAnimal) {
+                // 動物耳朵
+                if (animalType === 'cat') {
+                    svg += `<polygon points="35,35 45,0 60,25" fill="${skinColor}" />`; 
+                    svg += `<polygon points="85,35 75,0 60,25" fill="${skinColor}" />`;
+                    svg += `<polygon points="39,33 45,10 56,26" fill="#fca5a5" />`; 
+                    svg += `<polygon points="81,33 75,10 64,26" fill="#fca5a5" />`;
+                } else if (animalType === 'dog') {
+                    svg += `<ellipse cx="25" cy="55" rx="10" ry="25" fill="#92400e" transform="rotate(20 25 55)" />`;
+                    svg += `<ellipse cx="95" cy="55" rx="10" ry="25" fill="#92400e" transform="rotate(-20 95 55)" />`;
+                }
+                
+                // 動物五官
+                svg += `<circle cx="45" cy="55" r="4" fill="#000" />`;
+                svg += `<circle cx="46" cy="53" r="1.5" fill="#fff" />`;
+                svg += `<circle cx="75" cy="55" r="4" fill="#000" />`;
+                svg += `<circle cx="76" cy="53" r="1.5" fill="#fff" />`;
+                svg += `<ellipse cx="60" cy="65" rx="12" ry="8" fill="#fff" opacity="0.9" />`; // 吻部
+                svg += `<circle cx="60" cy="62" r="4" fill="#000" />`; // 鼻
+                svg += `<path d="M 60 66 L 60 70 M 53 71 Q 60 75 67 71" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round" />`; // 嘴
+                
+                // 貓鬚
+                if (animalType === 'cat') {
+                    svg += `<line x1="45" y1="62" x2="30" y2="58" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>`;
+                    svg += `<line x1="45" y1="66" x2="30" y2="66" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>`;
+                    svg += `<line x1="75" y1="62" x2="90" y2="58" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>`;
+                    svg += `<line x1="75" y1="66" x2="90" y2="66" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>`;
+                }
+            } else {
+                // 人類頭髮與五官
+                svg += `<path d="M 25 50 A 35 35 0 0 1 95 50 Z" fill="${hairColor}" />`;
+                if (suspect.personObj.isBoy) svg += `<path d="M 25 50 L 35 56 L 45 46 L 60 56 L 75 46 L 85 56 L 95 50 Z" fill="${hairColor}" />`;
+                else svg += `<path d="M 25 50 Q 60 58 95 50 Z" fill="${hairColor}" />`;
+                
+                svg += `<circle cx="48" cy="60" r="5" fill="#000" /><circle cx="49" cy="58" r="2" fill="#fff" />
+                    <circle cx="72" cy="60" r="5" fill="#000" /><circle cx="73" cy="58" r="2" fill="#fff" />
+                    <ellipse cx="38" cy="65" rx="6" ry="3.5" fill="#fca5a5" opacity="0.8"/>
+                    <ellipse cx="82" cy="65" rx="6" ry="3.5" fill="#fca5a5" opacity="0.8"/>
+                    <path d="M 55 68 Q 60 74 65 68" stroke="#000" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+            }
+
+            // 手臂
+            svg += `<path d="M 35 85 L ${leftHandX} ${leftHandY}" stroke="${skinColor}" stroke-width="12" fill="none" stroke-linecap="round" />`;
+            svg += `<path d="M 85 85 L ${rightHandX} ${rightHandY}" stroke="${skinColor}" stroke-width="12" fill="none" stroke-linecap="round" />`;
+            svg += `</g>`;
+
+            // 道具
+            let propSVG = '';
+            if (action === '飲水') {
+                propSVG += `<rect x="38" y="70" width="14" height="26" rx="4" fill="#e0f2fe" stroke="#1e293b" stroke-width="1.5"/>`;
+                propSVG += `<path d="M 38 82 L 52 82 L 52 92 Q 52 96 48 96 L 42 96 Q 38 96 38 92 Z" fill="#38bdf8" />`;
+            } else if (action === '食蘋果') {
+                propSVG += `<circle cx="45" cy="85" r="10" fill="#ef4444" stroke="#1e293b" stroke-width="2"/>`;
+                propSVG += `<path d="M 45 75 Q 50 71 52 75 Q 48 79 45 75 Z" fill="#22c55e"/>`;
+            } else if (action === '睇書') {
+                propSVG += `
+                    <path d="M 30 92 Q 43 87 54 94 Q 65 87 78 92 L 76 114 Q 65 109 54 116 Q 43 109 32 114 Z" fill="#3b82f6" stroke="#1e293b" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 33 92 Q 43 88 54 94 L 54 114 Q 43 108 33 112 Z" fill="#ffffff" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round" />
+                    <path d="M 75 92 Q 65 88 54 94 L 54 114 Q 65 108 75 112 Z" fill="#ffffff" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round" />
+                    <line x1="54" y1="94" x2="54" y2="114" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" />
+                    <line x1="39" y1="99" x2="50" y2="99" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                    <line x1="39" y1="105" x2="48" y2="105" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                    <line x1="58" y1="99" x2="69" y2="99" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                    <line x1="58" y1="105" x2="67" y2="105" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                `;
+            } else if (action === '踢波') {
+                propSVG += `<circle cx="85" cy="138" r="12" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>`;
+                propSVG += `<path d="M 85 132 L 80 136 L 82 143 L 88 143 L 90 136 Z" fill="#1e293b"/>`;
+            }
+            svg += propSVG;
+            svg += `<circle cx="${leftHandX}" cy="${leftHandY}" r="5" fill="${skinColor}" />`;
+            svg += `<circle cx="${rightHandX}" cy="${rightHandY}" r="5" fill="${skinColor}" />`;
+            svg += `</svg>`;
+            return svg;
+        }
+
+        // --- Logic & Generation ---
+        function getRandomItem(array) { return array[Math.floor(Math.random() * array.length)]; }
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // ✨ 新增：初始化/重新開始遊戲 (生成 6 隻新公仔) ✨
+        function setupMachine() {
+            const initialTargetShirt = getRandomItem(SHIRTS);
+            const initialTargetAction = getRandomItem(ACTIONS);
+            const initialTargetPerson = getRandomItem(PERSONS);
+            
+            // 刻意製造歧義的組合，保證遊戲一開始的難度
+            currentLineup = [{ id: 'p_base', shirtObj: initialTargetShirt, actionObj: initialTargetAction, personObj: initialTargetPerson }];
+            
+            // ✨ 核心修復：檢查是否撞樣的輔助函數，確保不會生成外表一模一樣的雙胞胎 ✨
+            const exists = (sId, aId, pId) => currentLineup.some(p => p.shirtObj.id === sId && p.actionObj.id === aId && p.personObj.id === pId);
+
+            // 確保生成的干擾項絕對不會與現有公仔完全重複
+            let d1Action;
+            do { d1Action = getRandomItem(ACTIONS); } while (d1Action.id === initialTargetAction.id);
+            currentLineup.push({ id: 'd1', shirtObj: initialTargetShirt, actionObj: d1Action, personObj: initialTargetPerson });
+
+            let d2Shirt;
+            do { d2Shirt = getRandomItem(SHIRTS); } while (d2Shirt.id === initialTargetShirt.id);
+            currentLineup.push({ id: 'd2', shirtObj: d2Shirt, actionObj: initialTargetAction, personObj: initialTargetPerson });
+
+            let d3Person = PERSONS.find(p => p.id !== initialTargetPerson.id);
+            currentLineup.push({ id: 'd3', shirtObj: initialTargetShirt, actionObj: initialTargetAction, personObj: d3Person });
+
+            // 填滿剩下的空位，並經過嚴格的防撞樣過濾
+            while (currentLineup.length < 6) {
+                const s = getRandomItem(SHIRTS); const a = getRandomItem(ACTIONS); const p = getRandomItem(PERSONS);
+                
+                // 只有在這隻公仔的特徵組合從未出現過的情況下，才把它放進機內
+                if (!exists(s.id, a.id, p.id)) {
+                    currentLineup.push({ id: `p_rand_${currentLineup.length}`, shirtObj: s, actionObj: a, personObj: p });
+                }
+            }
+
+            currentLineup = shuffle(currentLineup);
+            
+            // 為每隻公仔分配固定位置，並標記尚未被夾走
+            currentLineup.forEach((p, index) => {
+                p.slot = safeSlots[index];
+                p.caught = false;
+                p.isTarget = false;
+            });
+
+            renderMachinePlushies();
+        }
+
+        // 重新開始遊戲按鈕
+        function restartGame() {
+            if (isClawAnimating) return;
+            score = 0;
+            document.getElementById('score-display').textContent = score;
+            targetSuspect = null;
+            isGameActive = false;
+            
+            const visual = document.getElementById('mission-visual');
+            visual.innerHTML = '<div class="text-5xl opacity-30 text-white">投幣開始</div>';
+            
+            const fb = document.getElementById('system-feedback');
+            fb.innerHTML = "👈 拖曳銀仔入錢開始遊戲！<span class='block text-xs text-yellow-500/70 mt-1'>⚠️ 若無聲音，請確保 iPad 側邊掣或控制中心的「鈴鐺」未被靜音</span>";
+            fb.classList.remove('text-rose-400', 'text-emerald-400');
+            fb.classList.add('text-yellow-300');
+            
+            document.getElementById('transcript-display').innerHTML = '<span class="text-slate-400 text-sm">語音字幕將顯示在此...</span>';
+            
+            resetClawState();
+            setupMachine();
+            playSuccessSound();
+        }
+
+        function generateMission() {
+            resetClawState();
+            document.getElementById('transcript-display').innerHTML = '<span class="text-slate-400 text-sm">語音字幕將顯示在此...</span>'; 
+            
+            const availablePlushies = currentLineup.filter(p => !p.caught);
+            
+            if (availablePlushies.length === 0) {
+                const fb = document.getElementById('system-feedback');
+                fb.innerHTML = "🎉 嘩！所有公仔都夾晒啦！請撳上方「重玩」按鈕！";
+                fb.classList.replace('text-rose-400', 'text-yellow-300');
+                fb.classList.replace('text-emerald-400', 'text-yellow-300');
+                playSuccessSound();
+                return;
+            }
+
+            currentLineup.forEach(p => p.isTarget = false);
+            targetSuspect = getRandomItem(availablePlushies);
+            targetSuspect.isTarget = true;
+
+            isGameActive = true;
+            
+            updateTargetUI();
+            if (isHintVisible) updateHintText();
+            playAudio("新目標準備好！請讀出句子解鎖控制器！");
+            
+            const fb = document.getElementById('system-feedback');
+            fb.innerHTML = "請按下咪高峰，讀出你想夾嘅公仔！";
+            fb.classList.replace('text-rose-400', 'text-yellow-300');
+            fb.classList.replace('text-emerald-400', 'text-yellow-300');
+        }
+
+        function updateTargetUI() {
+            const visual = document.getElementById('mission-visual');
+            visual.innerHTML = generateSuspectSVG(targetSuspect, 1);
+            visual.firstElementChild.classList.add('animate-pop');
+        }
+
+        function renderMachinePlushies() {
+            const container = document.getElementById('characters-container');
+            container.innerHTML = '';
+            
+            currentLineup.forEach(suspect => {
+                if (suspect.caught) return; 
+                
+                const div = document.createElement('div');
+                div.className = 'plushie animate-pop';
+                div.style.bottom = suspect.slot.bottom;
+                div.style.left = suspect.slot.left;
+                div.style.zIndex = suspect.slot.zIndex;
+                div.id = `plushie-${suspect.id}`;
+                
+                div.innerHTML = generateSuspectSVG(suspect, 0.9);
+                container.appendChild(div);
+            });
+        }
+
+        function toggleTextHint() {
+            isHintVisible = !isHintVisible;
+            const hintBox = document.getElementById('text-hint-box');
+            if (isHintVisible) { hintBox.classList.remove('hidden'); updateHintText(); } 
+            else { hintBox.classList.add('hidden'); }
+        }
+
+        function updateHintText() {
+            if (!targetSuspect) return;
+            document.getElementById('hint-shirt').textContent = targetSuspect.shirtObj.name;
+            document.getElementById('hint-action').textContent = targetSuspect.actionObj.name;
+            document.getElementById('hint-person').textContent = targetSuspect.personObj.name;
+            
+            document.getElementById('hint-shirt2').textContent = targetSuspect.shirtObj.name;
+            document.getElementById('hint-action2').textContent = targetSuspect.actionObj.name;
+            document.getElementById('hint-person2').textContent = targetSuspect.personObj.name;
+        }
+
+        // --- Controller & Claw Logic ---
+        function resetClawState() {
+            stopBGM(); 
+            isClawUnlocked = false;
+            isClawAnimating = false;
+            clawX = 50;
+            
+            const claw = document.getElementById('claw-assembly');
+            const payload = document.getElementById('claw-payload');
+            
+            claw.className = 'claw-open transition-top-only';
+            claw.style.top = '-20px';
+            claw.style.left = '50%';
+            
+            payload.innerHTML = '';
+            document.getElementById('joystick-panel').classList.add('disabled-panel');
+
+            renderMachinePlushies();
+        }
+
+        function unlockControlsManual() {
+            if (!isGameActive) return;
+            unlockControls("手動解鎖成功！");
+        }
+
+        function unlockControls(msg) {
+            isClawUnlocked = true;
+            document.getElementById('joystick-panel').classList.remove('disabled-panel');
+            
+            const fb = document.getElementById('system-feedback');
+            fb.innerHTML = `✅ ${msg}<br><span class="text-white text-base md:text-lg">請用按鈕移動方向，對準後按「落爪」！</span>`;
+            fb.classList.replace('text-rose-400', 'text-emerald-400');
+            fb.classList.replace('text-yellow-300', 'text-emerald-400');
+            playSuccessSound();
+            
+            setTimeout(() => { startBGM(); }, 800);
+        }
+
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        function moveClaw(dir) {
+            if (!isClawUnlocked || isClawAnimating) return;
+            playMechanicalSound();
+            clearInterval(clawMoveInterval);
+            
+            clawMoveInterval = setInterval(() => {
+                if (dir === 'left' && clawX > 10) clawX -= 0.5;
+                if (dir === 'right' && clawX < 95) clawX += 0.5;
+                document.getElementById('claw-assembly').style.left = `${clawX}%`;
+            }, 16);
+        }
+
+        function stopClaw() { clearInterval(clawMoveInterval); }
+
+        btnLeft.addEventListener('pointerdown', () => moveClaw('left'));
+        btnLeft.addEventListener('pointerup', stopClaw);
+        btnLeft.addEventListener('pointerleave', stopClaw);
+        btnRight.addEventListener('pointerdown', () => moveClaw('right'));
+        btnRight.addEventListener('pointerup', stopClaw);
+        btnRight.addEventListener('pointerleave', stopClaw);
+
+        function dropClaw() {
+            if (!isClawUnlocked || isClawAnimating) return;
+            isClawAnimating = true;
+            isClawUnlocked = false; 
+            document.getElementById('joystick-panel').classList.add('disabled-panel');
+
+            const claw = document.getElementById('claw-assembly');
+            const payload = document.getElementById('claw-payload');
+            
+            const clawRect = claw.getBoundingClientRect();
+            const clawCenterX = clawRect.left + clawRect.width / 2;
+
+            let caughtPlushie = null;
+            let minDiff = Infinity;
+            let targetDivToCatch = null;
+
+            currentLineup.forEach(p => {
+                if(p.caught) return;
+                const el = document.getElementById(`plushie-${p.id}`);
+                if (el && el.parentElement.id === 'characters-container') {
+                    const rect = el.getBoundingClientRect();
+                    const pCenterX = rect.left + rect.width / 2;
+                    const diff = Math.abs(pCenterX - clawCenterX);
+                    
+                    if (diff < 80 && diff < minDiff) {
+                        minDiff = diff;
+                        caughtPlushie = p;
+                        targetDivToCatch = el;
+                    }
+                }
+            });
+
+            let dropDepth = 260; 
+            if (targetDivToCatch) {
+                const gridRect = document.getElementById('suspect-grid').getBoundingClientRect();
+                const targetRect = targetDivToCatch.getBoundingClientRect();
+                
+                const pCenterX = targetRect.left + targetRect.width / 2;
+                clawX = ((pCenterX - gridRect.left) / gridRect.width) * 100;
+                claw.style.left = `${clawX}%`;
+
+                dropDepth = (targetRect.top - gridRect.top) - 10; 
+            }
+
+            claw.className = 'claw-open transition-smooth';
+            claw.style.top = `${dropDepth}px`; 
+            playAudio("落爪！");
+
+            setTimeout(() => {
+                claw.className = 'claw-closed transition-smooth';
+                playGrabSound();
+
+                if (caughtPlushie && targetDivToCatch) {
+                    targetDivToCatch.classList.remove('ambiguous-highlight');
+                    
+                    payload.appendChild(targetDivToCatch);
+                    
+                    targetDivToCatch.style.position = 'relative';
+                    targetDivToCatch.style.left = 'auto';
+                    targetDivToCatch.style.right = 'auto';
+                    targetDivToCatch.style.bottom = 'auto';
+                    targetDivToCatch.style.top = '-25px'; 
+                    targetDivToCatch.style.margin = '0 auto';
+                    targetDivToCatch.style.transform = 'scale(1.05)'; 
+                    targetDivToCatch.style.transition = 'none'; 
+                }
+
+                setTimeout(() => {
+                    claw.style.top = '-20px'; 
+                    
+                    setTimeout(() => {
+                        claw.style.left = '12%'; 
+                        playMechanicalSound();
+
+                        setTimeout(() => {
+                            claw.className = 'claw-open transition-smooth'; 
+                            if (caughtPlushie) {
+                                payload.firstElementChild.style.animation = 'fallDown 1s forwards ease-in';
+                            }
+
+                            setTimeout(() => {
+                                stopBGM(); 
+                                const fb = document.getElementById('system-feedback');
+                                
+                                if (caughtPlushie && caughtPlushie.isTarget) {
+                                    caughtPlushie.caught = true; 
+                                    
+                                    let scoreDisplay = document.getElementById('score-display');
+                                    scoreDisplay.textContent = parseInt(scoreDisplay.textContent) + 1;
+                                    fb.innerHTML = `🎉 恭喜你夾中啦！真係好叻！`;
+                                    playSuccessSound();
+                                    if (window.confetti) confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, zIndex: 9999 });
+                                    
+                                    setTimeout(() => {
+                                        resetClawState(); 
+                                        isGameActive = false; 
+                                        fb.innerHTML = "👈 拖曳銀仔入錢夾下一隻公仔！";
+                                        fb.classList.replace('text-emerald-400', 'text-yellow-300');
+                                    }, 3000);
+
+                                } else if (caughtPlushie) {
+                                    fb.innerHTML = `❌ 哎呀，夾錯咗公仔呀！請再入銀仔挑戰！`;
+                                    fb.classList.replace('text-emerald-400', 'text-rose-400');
+                                    fb.classList.replace('text-yellow-300', 'text-rose-400');
+                                    playErrorSound();
+                                    
+                                    setTimeout(() => {
+                                        resetClawState(); 
+                                        isGameActive = false;
+                                        fb.innerHTML = "👈 拖曳銀仔入錢開始新遊戲！<span class='block text-xs text-yellow-500/70 mt-1'>⚠️ 若無聲音，請確保 iPad 側邊掣或控制中心的「鈴鐺」未被靜音</span>";
+                                        fb.classList.replace('text-rose-400', 'text-yellow-300');
+                                    }, 2500);
+
+                                } else {
+                                    fb.innerHTML = `💨 哎呀，夾空咗！再畀次機會你！`;
+                                    playErrorSound();
+                                    
+                                    setTimeout(() => {
+                                        resetClawState(); 
+                                        unlockControls("請再次挑戰！");
+                                    }, 1500);
+                                }
+                            }, 1000); 
+                        }, 1200); 
+                    }, 1000); 
+                }, 800); 
+            }, 1000); 
+        }
+
+        // --- Speech Processing Logic ---
+        function processSpeech(transcript) {
+            if (!isGameActive || isClawAnimating) return;
+            const fb = document.getElementById('system-feedback');
+            
+            let mentionedShirt = null, mentionedAction = null, mentionedPerson = null;
+
+            SHIRTS.forEach(s => { if (transcript.includes(s.keyword)) mentionedShirt = s.id; });
+            ACTIONS.forEach(a => { if (transcript.includes(a.keyword)) mentionedAction = a.id; });
+            PERSONS.forEach(p => { if (transcript.includes(p.keyword)) mentionedPerson = p.id; });
+
+            if (!mentionedShirt || !mentionedAction) {
+                fb.innerHTML = `⚠️ 講得唔夠完整喎！請講清楚「咩色衫」同「做緊咩」。`;
+                fb.classList.replace('text-yellow-300', 'text-rose-400');
+                fb.classList.replace('text-emerald-400', 'text-rose-400');
+                playErrorSound();
+                playAudio("試下將動作同顏色連埋一齊講清楚？");
+                return;
+            }
+
+            let matches = currentLineup.filter(m => {
+                if (m.caught) return false; 
+                let match = true;
+                if (mentionedShirt && m.shirtObj.id !== mentionedShirt) match = false;
+                if (mentionedAction && m.actionObj.id !== mentionedAction) match = false;
+                if (mentionedPerson && m.personObj.id !== mentionedPerson) match = false;
+                return match;
+            });
+
+            document.querySelectorAll('.plushie').forEach(el => el.classList.remove('ambiguous-highlight'));
+
+            if (matches.length === 0) {
+                fb.innerHTML = `🤔 機入面無你講嗰${currentTheme === 'human' ? '個' : '隻'}公仔喎。再睇清楚啲？`;
+                fb.classList.replace('text-yellow-300', 'text-rose-400');
+                fb.classList.replace('text-emerald-400', 'text-rose-400');
+                playErrorSound();
+            } 
+            else if (matches.length > 1) {
+                matches.forEach(m => document.getElementById(`plushie-${m.id}`).classList.add('ambiguous-highlight'));
+                
+                let promptMsg = `⚠️ 哎呀！太籠統啦！有 <b>${matches.length}</b> 隻公仔都符合條件喎！<br>`;
+                let voiceMsg = `有幾隻公仔都一樣喎。`;
+                
+                if (!mentionedPerson) {
+                    const question = currentTheme === 'human' ? '佢係男仔定女仔呀？' : '佢係貓貓定狗狗呀？';
+                    promptMsg += `<span class="text-white">${question}</span>`;
+                    voiceMsg += question;
+                } else {
+                    promptMsg += `<span class="text-white">試下再講清楚啲？</span>`;
+                    voiceMsg += `試下講清楚啲？`;
+                }
+                
+                fb.innerHTML = promptMsg;
+                fb.classList.replace('text-yellow-300', 'text-rose-400');
+                fb.classList.replace('text-emerald-400', 'text-rose-400');
+                playAudio(voiceMsg);
+            }
+            else if (matches.length === 1) {
+                const found = matches[0];
+                if (found.isTarget) {
+                    unlockControls("語音正確！控制器已解鎖！");
+                } else {
+                    document.getElementById(`plushie-${found.id}`).classList.add('ambiguous-highlight');
+                    fb.innerHTML = `❌ 指令清晰，不過你形容錯咗目標公仔！`;
+                    fb.classList.replace('text-yellow-300', 'text-rose-400');
+                    fb.classList.replace('text-emerald-400', 'text-rose-400');
+                    playErrorSound();
+                }
+            }
+        }
+
+        // --- 即時語音字幕顯示 ---
+        function startSpeechRecognition() {
+            if (!isGameActive || isClawAnimating) {
+                playAudio("請先拖曳銀仔入洞口！");
+                return;
+            }
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { alert("⚠️ 設備不支援語音功能。"); return; }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'zh-HK'; 
+            recognition.interimResults = true; 
+            recognition.maxAlternatives = 1;
+
+            const micBtn = document.getElementById('mic-btn');
+            const display = document.getElementById('transcript-display');
+            
+            function resetMicBtn() {
+                micBtn.innerHTML = "🎙️ 讀出句子解鎖";
+                micBtn.classList.remove('animate-pulse');
+                micBtn.disabled = false;
+            }
+
+            micBtn.innerHTML = "📡 聽緊你講...";
+            micBtn.classList.add('animate-pulse');
+            micBtn.disabled = true;
+            display.innerHTML = `👂 <span class="text-white ml-2">請開始說話...</span>`;
+
+            let currentTranscript = '';
+
+            try { recognition.start(); } catch (e) {
+                alert("啟動麥克風失敗：" + e.message);
+                resetMicBtn(); return;
+            }
+
+            recognition.onresult = (event) => {
+                let isFinal = false;
+                let tempTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    tempTranscript += event.results[i][0].transcript;
+                    if (event.results[i].isFinal) isFinal = true;
+                }
+                
+                currentTranscript = tempTranscript;
+                display.innerHTML = `👂 聽到: <span class="text-white ml-2">${currentTranscript}</span>`;
+
+                if (isFinal) {
+                    processSpeech(currentTranscript);
+                    currentTranscript = ''; 
+                    resetMicBtn();
+                    recognition.stop();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'not-allowed') alert("⚠️ 請允許網站使用麥克風！");
+                display.innerHTML = '<span class="text-slate-400 text-sm">語音字幕將顯示在此...</span>';
+                resetMicBtn(); 
+            };
+            
+            recognition.onend = () => {
+                if (currentTranscript) {
+                    processSpeech(currentTranscript);
+                    currentTranscript = '';
+                }
+                resetMicBtn(); 
+            };
+        }
+
+        // --- Audio & Effects ---
+        function startBGM() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            stopBGM(); 
+            const melody = [392.00, 523.25, 659.25, 783.99, 659.25, 523.25, 392.00, 329.63];
+            bgmInterval = setInterval(() => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.value = melody[bgmNoteIndex];
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime); 
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+                bgmNoteIndex = (bgmNoteIndex + 1) % melody.length;
+            }, 120); 
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+        }
+
+        function playCoinTouchSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playCoinInsertSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const oscDrop = audioCtx.createOscillator(); 
+            const gainDrop = audioCtx.createGain();
+            oscDrop.type = 'square'; 
+            oscDrop.frequency.setValueAtTime(400, audioCtx.currentTime);
+            oscDrop.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            gainDrop.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainDrop.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            oscDrop.connect(gainDrop); gainDrop.connect(audioCtx.destination);
+            oscDrop.start(); oscDrop.stop(audioCtx.currentTime + 0.1);
+
+            const oscCoin = audioCtx.createOscillator(); 
+            const gainCoin = audioCtx.createGain();
+            oscCoin.type = 'sine'; 
+            oscCoin.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1); 
+            oscCoin.frequency.setValueAtTime(2000, audioCtx.currentTime + 0.25); 
+            gainCoin.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainCoin.gain.setValueAtTime(1, audioCtx.currentTime + 0.1);
+            gainCoin.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.3);
+            gainCoin.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            oscCoin.connect(gainCoin); gainCoin.connect(audioCtx.destination);
+            oscCoin.start(audioCtx.currentTime + 0.1); 
+            oscCoin.stop(audioCtx.currentTime + 0.8);
+        }
+
+        function playMechanicalSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playGrabSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playSuccessSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const notes = [523.25, 659.25, 783.99, 1046.50]; 
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sine'; const startTime = audioCtx.currentTime + (i * 0.1);
+                osc.frequency.setValueAtTime(freq, startTime);
+                gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(startTime); osc.stop(startTime + 0.4);
+            });
+        }
+
+        function playErrorSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3); 
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playAudio(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-HK'; utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        window.onload = () => {
+            setupMachine(); 
+            document.getElementById('system-feedback').innerHTML = "👈 拖曳銀仔入錢開始遊戲！<span class='block text-xs text-yellow-500/70 mt-1'>⚠️ 若無聲音，請確保 iPad 側邊掣或控制中心的「鈴鐺」未被靜音</span>";
+        };
+    </script>
+</body>
+</html>
